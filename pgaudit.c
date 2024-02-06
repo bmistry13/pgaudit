@@ -38,6 +38,9 @@
 #include "utils/syscache.h"
 #include "utils/timestamp.h"
 #include "utils/varlena.h"
+#include <string.h>
+#include <assert.h>
+
 
 PG_MODULE_MAGIC;
 
@@ -158,6 +161,10 @@ char *auditRole = NULL;
  * without enabling role-based access.
  */
 char *auditExcludeObjects = NULL;
+
+char *auditExcludeObjectMatch = NULL;
+
+char** auditExcludeObjectsTokens = NULL;
 
 /*
  * String constants for the audit log fields.
@@ -495,6 +502,81 @@ object_must_be_excluded(char *objectName)
     return result;
 }
 
+static char** str_split(char* a_str, const char a_delim)
+{
+    char** result    = 0;
+    size_t count     = 0;
+    char* tmp        = a_str;
+    char* last_comma = 0;
+    char delim[2];
+    delim[0] = a_delim;
+    delim[1] = 0;
+
+    /* Count how many elements will be extracted. */
+    while (*tmp)
+    {
+        if (a_delim == *tmp)
+        {
+            count++;
+            last_comma = tmp;
+        }
+        tmp++;
+    }
+
+    /* Add space for trailing token. */
+    count += last_comma < (a_str + strlen(a_str) - 1);
+
+    /* Add space for terminating null string so caller
+       knows where the list of returned strings ends. */
+    count++;
+
+    result = malloc(sizeof(char*) * count);
+
+    if (result)
+    {
+        size_t idx  = 0;
+        char* token = strtok(a_str, delim);
+
+        while (token)
+        {
+            assert(idx < count);
+            *(result + idx++) = strdup(token);
+            token = strtok(0, delim);
+        }
+        assert(idx == count - 1);
+        *(result + idx) = 0;
+    }
+
+    return result;
+}
+
+/*
+ * Versa Patch to check if query has any matches index of string this is case sensitive match
+ */
+static bool
+object_match_must_be_excluded( const char * text)
+{
+
+    bool result = false;
+    char** ptr;
+    char* token;
+
+    if (text == NULL || auditExcludeObjectsTokens == NULL)
+        return result;
+
+    ptr = auditExcludeObjectsTokens;
+    for (token = *ptr; token; token=*++ptr)
+    {
+        if (strstr(text, token) != NULL)
+        {
+            result = true;
+            break;
+        }
+    }
+    return result;
+}
+
+
 /*
  * Takes an AuditEvent, classifies it, then logs it if appropriate.
  *
@@ -522,6 +604,14 @@ log_audit_event(AuditEventStackItem *stackItem)
      */
     if (object_must_be_excluded(stackItem->auditEvent.objectName))
         return;
+
+   /***
+   *  VERSA exclude string
+   */
+   if (object_match_must_be_excluded(stackItem->auditEvent.commandText)){
+        return;
+   }
+
 
     /*
      * Skip logging script statements if an extension is currently being created
@@ -2066,6 +2156,21 @@ _PG_init(void)
         GUC_NOT_IN_SAMPLE,
         NULL, NULL, NULL);
 
+
+      /* Define pgaudit.exclude_matches */
+      DefineCustomStringVariable(
+          "pgaudit.exclude_matches",
+
+          "Specifies which string will not be logged by session audit "
+          "logging. Multiple string names can be provided using a comma-separated list.",
+
+          NULL,
+          &auditExcludeObjectMatch,
+          "none",
+          PGC_SUSET,
+          GUC_NOT_IN_SAMPLE,
+          NULL, NULL, NULL);
+
     /*
      * Install our hook functions after saving the existing pointers to
      * preserve the chains.
@@ -2084,10 +2189,19 @@ _PG_init(void)
 
     /* Log that the extension has completed initialization */
 #ifndef EXEC_BACKEND
-    ereport(LOG, (errmsg("pgaudit extension initialized")));
+    ereport(LOG, (errmsg("pgaudit versa extension initialized")));
 #else
-    ereport(DEBUG1, (errmsg("pgaudit extension initialized")));
+    ereport(DEBUG1, (errmsg("pgaudit versa extension initialized")));
 #endif /* EXEC_BACKEND */
+    if(auditExcludeObjectMatch != NULL){
+        auditExcludeObjectsTokens = str_split(auditExcludeObjectMatch,',');
+    /* Log that the match has completed initialization */
+#ifndef EXEC_BACKEND
+    ereport(LOG, (errmsg("pgaudit versa match initialized")));
+#else
+    ereport(DEBUG1, (errmsg("pgaudit versa match initialized")));
+#endif /* EXEC_BACKEND */
+    }
 
     inited = true;
 }
