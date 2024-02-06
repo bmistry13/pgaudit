@@ -1582,6 +1582,7 @@ DROP FUNCTION upper(text);
 
 -- Test exclude_objects for two tables
 SET pgaudit.exclude_objects = "extratable1,extratable2";
+SET pgaudit.exclude_matches = "extratable1,extratable2";
 
 CREATE TABLE extratable1 ();
 CREATE TABLE extratable2 ();
