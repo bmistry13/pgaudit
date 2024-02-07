@@ -179,10 +179,10 @@ char *auditRole = NULL;
  * without enabling role-based access.
  */
 char *auditExcludeObjects = NULL;
+char** auditExcludeObjectsTokens = NULL;
 
 char *auditExcludeObjectMatch = NULL;
-
-char** auditExcludeObjectsTokens = NULL;
+char** auditExcludeObjectMatchTokens = NULL;
 
 /*
  * String constants for the audit log fields.
@@ -493,25 +493,22 @@ append_valid_csv(StringInfoData *buffer, const char *appendStr)
 static bool
 object_must_be_excluded(char *objectName)
 {
-    char *excludeObjects;
-    char *name;
     bool result = false;
-    if (objectName == NULL || auditExcludeObjects == NULL)
+    char** ptr;
+    char* token;
+
+    if (objectName == NULL || auditExcludeObjectsTokens == NULL)
         return result;
 
-    excludeObjects = (char*) malloc(strlen(auditExcludeObjects)*sizeof(char));
-    strcpy(excludeObjects, auditExcludeObjects);
-    name = strtok(excludeObjects,",");
-    while (name != NULL)
+    ptr = auditExcludeObjectsTokens;
+    for (token = *ptr; token; token=*++ptr)
     {
-        if (!strcmp(objectName, name)) {
+        if (strcmp(objectName, token) == 0)
+        {
             result = true;
             break;
         }
-        name = strtok(NULL, ",");
     }
-
-    free(excludeObjects);
     return result;
 }
 
@@ -574,10 +571,10 @@ object_match_must_be_excluded( const char * text)
     char** ptr;
     char* token;
 
-    if (text == NULL || auditExcludeObjectsTokens == NULL)
+    if (text == NULL || auditExcludeObjectMatchTokens == NULL)
         return result;
 
-    ptr = auditExcludeObjectsTokens;
+    ptr = auditExcludeObjectMatchTokens;
     for (token = *ptr; token; token=*++ptr)
     {
         if (strstr(text, token) != NULL)
@@ -2364,13 +2361,28 @@ _PG_init(void)
 #else
     ereport(DEBUG1, (errmsg("pgaudit versa extension initialized")));
 #endif /* EXEC_BACKEND */
-    if(auditExcludeObjectMatch != NULL){
-        auditExcludeObjectsTokens = str_split(auditExcludeObjectMatch,',');
+    if(auditExcludeObjectMatch != NULL)
+    {
+        auditExcludeObjectMatchTokens = str_split(auditExcludeObjectMatch,',');
+        // FREE MEMORY SINCE we won't using this variable anymore
+        free(auditExcludeObjectMatch);
     /* Log that the match has completed initialization */
 #ifndef EXEC_BACKEND
     ereport(LOG, (errmsg("pgaudit versa match initialized")));
 #else
     ereport(DEBUG1, (errmsg("pgaudit versa match initialized")));
+#endif /* EXEC_BACKEND */
+    }
+
+    if(auditExcludeObjects != NULL){
+            auditExcludeObjectsTokens = str_split(auditExcludeObjects,',');
+            // FREE MEMORY SINCE we won't using this variable anymore
+            free(auditExcludeObjects);
+        /* Log that the match has completed initialization */
+#ifndef EXEC_BACKEND
+    ereport(LOG, (errmsg("pgaudit versa exclude initialized")));
+#else
+    ereport(DEBUG1, (errmsg("pgaudit versa exclude initialized")));
 #endif /* EXEC_BACKEND */
     }
 
