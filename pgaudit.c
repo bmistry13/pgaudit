@@ -2373,7 +2373,7 @@ _PG_init(void)
     }
 
     if(auditExcludeObjects != NULL){
-            auditExcludeObjectsTokens = str_split(auditExcludeObjects,',')
+            auditExcludeObjectsTokens = str_split(auditExcludeObjects,',');
         /* Log that the match has completed initialization */
 #ifndef EXEC_BACKEND
     ereport(LOG, (errmsg("pgaudit versa exclude initialized")));
