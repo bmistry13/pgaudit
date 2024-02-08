@@ -2207,8 +2207,6 @@ _PG_init(void)
     if(auditExcludeObjectMatch != NULL)
     {
         auditExcludeObjectMatchTokens = str_split(auditExcludeObjectMatch,',');
-        // FREE MEMORY SINCE we won't using this variable anymore
-        free(auditExcludeObjectMatch);
     /* Log that the match has completed initialization */
 #ifndef EXEC_BACKEND
     ereport(LOG, (errmsg("pgaudit versa match initialized")));
@@ -2218,9 +2216,7 @@ _PG_init(void)
     }
 
     if(auditExcludeObjects != NULL){
-            auditExcludeObjectsTokens = str_split(auditExcludeObjects,',');
-            // FREE MEMORY SINCE we won't using this variable anymore
-            free(auditExcludeObjects);
+            auditExcludeObjectsTokens = str_split(auditExcludeObjects,',')
         /* Log that the match has completed initialization */
 #ifndef EXEC_BACKEND
     ereport(LOG, (errmsg("pgaudit versa exclude initialized")));
