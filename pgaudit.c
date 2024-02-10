@@ -533,6 +533,11 @@ static char** str_split(char* a_str, const char a_delim)
         tmp++;
     }
 
+    if(last_comma == 0)
+    {
+        return NULL;
+    }
+
     /* Add space for trailing token. */
     count += last_comma < (a_str + strlen(a_str) - 1);
 
@@ -2050,6 +2055,39 @@ check_pgaudit_log(char **newVal, void **extra, GucSource source)
     return true;
 }
 
+
+/*
+ *
+ */
+static bool
+check_pgaudit_exclude(char **newVal, void **extra, GucSource source)
+{
+   extra = (void**)newVal;
+   return true;
+
+}
+
+static void
+assign_pgaudit_exclude_object(const char *newVal, void *extra)
+{
+   char* copy = strdup(newVal);
+   auditExcludeObjectsTokens=  str_split(copy,',') ;
+   free(copy);
+   ereport(LOG, (errmsg("AUDIT value set for pgaudit.exclude_objects =  %s",newVal)));
+
+}
+
+
+static void
+assign_pgaudit_exclude_matches(const char *newVal, void *extra)
+{
+   char* copy = strdup(newVal);
+   auditExcludeObjectMatchTokens= str_split(copy,',') ;
+   free(copy);
+   ereport(LOG, (errmsg("AUDIT value set for pgaudit.exclude_matches =  %s",newVal)));
+
+}
+
 /*
  * Set pgaudit_log from extra (ignoring newVal, which has already been
  * converted to a bitmap above). Note that extra may not be set if the
@@ -2312,10 +2350,10 @@ _PG_init(void)
 
         NULL,
         &auditExcludeObjects,
-        "none",
+        "",
         PGC_SUSET,
-        GUC_NOT_IN_SAMPLE,
-        NULL, NULL, NULL);
+        GUC_LIST_INPUT | GUC_NOT_IN_SAMPLE,
+        check_pgaudit_exclude, assign_pgaudit_exclude_object, NULL);
 
 
       /* Define pgaudit.exclude_matches */
@@ -2327,10 +2365,13 @@ _PG_init(void)
 
           NULL,
           &auditExcludeObjectMatch,
-          "none",
+          "",
           PGC_SUSET,
-          GUC_NOT_IN_SAMPLE,
-          NULL, NULL, NULL);
+          GUC_LIST_INPUT | GUC_NOT_IN_SAMPLE,
+          check_pgaudit_exclude, assign_pgaudit_exclude_matches, NULL);
+
+
+
 
     /*
      * Install our hook functions after saving the existing pointers to
@@ -2361,26 +2402,6 @@ _PG_init(void)
 #else
     ereport(DEBUG1, (errmsg("pgaudit versa extension initialized")));
 #endif /* EXEC_BACKEND */
-    if(auditExcludeObjectMatch != NULL)
-    {
-        auditExcludeObjectMatchTokens = str_split(auditExcludeObjectMatch,',');
-    /* Log that the match has completed initialization */
-#ifndef EXEC_BACKEND
-    ereport(LOG, (errmsg("pgaudit versa match initialized")));
-#else
-    ereport(DEBUG1, (errmsg("pgaudit versa match initialized")));
-#endif /* EXEC_BACKEND */
-    }
-
-    if(auditExcludeObjects != NULL){
-            auditExcludeObjectsTokens = str_split(auditExcludeObjects,',');
-        /* Log that the match has completed initialization */
-#ifndef EXEC_BACKEND
-    ereport(LOG, (errmsg("pgaudit versa exclude initialized")));
-#else
-    ereport(DEBUG1, (errmsg("pgaudit versa exclude initialized")));
-#endif /* EXEC_BACKEND */
-    }
 
     inited = true;
 }
