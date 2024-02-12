@@ -618,12 +618,17 @@ log_audit_event(AuditEventStackItem *stackItem)
      * Skip logging if object name in exclude_objects list.
      */
     if (object_must_be_excluded(stackItem->auditEvent.objectName))
+    {
+        auditEvent.logged=true;
         return;
+    }
 
    /***
    *  VERSA exclude string
    */
-   if (object_match_must_be_excluded(stackItem->auditEvent.commandText)){
+   if (object_match_must_be_excluded(stackItem->auditEvent.commandText))
+   {
+        auditEvent.logged=true;
         return;
    }
 
