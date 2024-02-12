@@ -619,7 +619,7 @@ log_audit_event(AuditEventStackItem *stackItem)
      */
     if (object_must_be_excluded(stackItem->auditEvent.objectName))
     {
-        auditEvent.logged=true;
+        stackItem->auditEvent.logged=true;
         return;
     }
 
@@ -628,7 +628,7 @@ log_audit_event(AuditEventStackItem *stackItem)
    */
    if (object_match_must_be_excluded(stackItem->auditEvent.commandText))
    {
-        auditEvent.logged=true;
+        stackItem->auditEvent.logged=true;
         return;
    }
 
